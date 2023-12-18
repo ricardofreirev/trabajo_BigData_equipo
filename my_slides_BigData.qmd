@@ -1,0 +1,483 @@
+---
+title: "Análisis de la Industria Cinematográfica"
+title-slide-attributes:
+  data-background-image: ./imagenes/my_IA_img3.png
+  data-background-size: cover
+  data-background-opacity: "0.5"
+date: 2023-12-01
+format:
+  revealjs:
+    theme: league
+    scrollable: true
+    slide-level: 2
+    height: 900
+    width: 1600
+    toc: false
+    center-title-slide: true
+    preview-links: auto
+    link-external-newwindow: true
+    transition: fade
+    fontcolor: "#262d36"
+    highlight-style: a11y
+    code-line-numbers: true
+    number-sections: false
+    slide-number: c/t  
+    incremental: false   
+footer: |
+  ##### <span style="color: darkred;">[Quarto](https://quarto.org/)</span>
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Introducción {background-image="./imagenes/my_IA_img3.png" background-size="cover" background-opacity="0.5"}
+
+**Objetivo**: Analizar y visualizar datos clave de la industria
+cinematográfica y proporcionar una visión integral de lo que han sido
+"éxitos" en este contexto. <br> <br> Destacamos el rendimiento
+financiero que han tenido las películas, pero también consideramos
+tendencias con respecto a género y franquicias/marcas y además hacemos
+una mención adicional a los actores de Hollywood con más reconocimientos
+en la escena internacional.
+
+# Datos: {background-image="./imagenes/my_IA_img3.png" background-size="cover" background-opacity="0.5"}
+
+Para el trabajo hemos usado tres fuentes de datos principales: <br> <br>
+**1. Box Office Mojo**: Website de datos de películas y su rendimiento
+financiero. <br> <br> **2. IMDB (Internet Movie Data Base): "**
+Información sobre las TOP 1000 pelícuas a nivel mundial. Clasificadas
+por ratings del público.<br> <br> **3. Top 100 Hollywood Actors**:
+Dataframe de Kaggle. Es un ranking objetivo de los actores de Holywood
+basando en premios y nominaciones.<br>
+
+. . .
+
+```{r}
+#Packetes y carga de datos
+#|echo: false
+# Estos son los Packages que hemos utilizado
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(gt)
+library(gtExtras)
+library(ggThemeAssist)
+library(plotly)
+library(sf)
+library(maps)
+library(tmap)
+```
+
+```{r}
+#Importamos Datos
+#|echo:false
+imbd_allTime <- read.csv("data/IMDB_Top1000_2023.csv")
+boxoffice_top_world <- read.csv("data/Boxoffice_Reveneus/boxofficemojointernationaltop1000.csv")
+boxoffice_brands <- read.csv("data/Boxoffice_Reveneus/boxofficemojobrandindices.csv")
+boxoffice_genres <- read.csv("data/Boxoffice_Reveneus/boxofficemojotopgenres.csv")
+boxoffice_fran <-read.csv("data/Boxoffice_Reveneus/boxofficemojotopfranchises.csv")
+actors <- read.csv("data/Top100_GOAT_Hollywood_Actors.csv")
+```
+
+# 1. Las más exitosas de todos los tiempos {background-image="./imagenes/my_IA_img9.png" background-size="cover" background-opacity="0.5"}
+
+::: highlight-box
+```{=html}
+<style>
+  p {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    color: white;
+    border-radius: 10px;
+  }
+</style>
+```
+Existen diferentes maneras de medir el éxito de una película. Sin
+embargo, nosotros/as aquí consideraremos dos métricas: el desempeño en
+taquilla y la opinión del público.
+:::
+
+------------------------------------------------------------------------
+
+## Películas más taquilleras de la historia {background-image="./imagenes/my_IA_img9.png" background-size="cover" background-opacity="0.5"}
+
+De acuerdo a Box Office Mojo, estas son lás 5 películas más éxitosas en
+taquilla:
+
+```{r}
+#| echo: false
+bo_allTime <- boxoffice_top_world %>%
+  select(Rank, Title, Worldwide.Lifetime.Gross, Year)
+
+#Tabla
+t1 <- bo_allTime %>% 
+  slice_max(n = 5, order_by = -Rank) %>% #ascending order 
+  gt() %>%
+  cols_label( Title = "Título"
+    ,Worldwide.Lifetime.Gross = "Ingresos Brutos", 
+             Year = "Año") %>%
+  cols_width(c(Worldwide.Lifetime.Gross, Year) ~ pct(8)) %>%
+  cols_width(c(Rank) ~ pct(3)) %>%
+  fmt_number(columns = c(Worldwide.Lifetime.Gross),
+             decimals = 0, 
+             sep_mark = ",")  %>%
+  tab_header(title = "Top  5 Películas",
+             subtitle = "Basado en éxito en taquilla") %>%
+  tab_source_note(md("Fuente: datos de [BoxOffice Mojo ](https://www.kaggle.com/datasets/somnath2/box-office)")) %>%
+  tab_footnote(footnote = "Dataset extraido de Kaggle", 
+               placement = "right",
+               location = cells_title("title")) |>
+  tab_options(
+    #table.width = pct(50)  
+    table.font.size = 30,
+    heading.padding = pct(0.5),
+    column_labels.padding = pct(0.5)
+  )
+t1
+```
+
+. . .
+
+**Fun fact:** La diferencia entre los puestos uno y dos es mínima, 50M
+dolares approx. <br> <br> Como podemos ver, es innegable que las
+películas de acción y superheroes han generado un fuerte interés en el
+público.
+--- 
+
+```{r}
+#| code-fold: true
+#Plot
+top_10_p <- bo_allTime %>%
+  slice_max(n = 10, order_by = -Rank) %>%#ascending order
+  mutate(Title = forcats::fct_reorder(Title, Worldwide.Lifetime.Gross)) %>%
+  ggplot(aes(x = Title, y = Worldwide.Lifetime.Gross/(1000000))) + 
+  geom_col(aes(fill = Title)) +
+  coord_flip() + 
+  #scale_x_continuous(limits = c(0, max(bo_allTime$Worldwide.Lifetime.Gross) + 500),
+   #                  breaks = seq(0, max(bo_allTime$Worldwide.Lifetime.Gross) + 500, by = 250)) +  
+  geom_text(aes(label = Title), hjust = 1.05, vjust = 0.5, size = 3.5, ) +
+  labs(title = "Top 10 Películas más taquilleras de la Historia",
+       subtitle = " Ingresos brutos en milliones",
+       x = "Ingresos brutos mundiales",
+       y = "Titulo") +
+  theme_minimal() + theme(legend.position = "none", # Remove legend
+                          axis.text.y = element_blank())  
+top_10_p
+```
+
+# 2. Top Marcas en el Cine {background-image="./imagenes/my_IA_img6.png" background-size="cover" background-opacity="0.5"}
+
+Ahora analizaremos las productoras detras de los grandes éxitos. También desde una perspectiva financiera.
+
+Como podemos ver las productoras que encabezan la lista son: Marvel
+Comics, Legendary Pictures y Lucasfilms. Como se ha mencionado, estas
+marcas producen películas de superheroes y acción.
+
+#
+
+```{r}
+#| code-fold: true
+top_stud_tab <- boxoffice_brands %>%
+  slice_max(n = 5, order_by = Total) %>%
+  select(Brand, Releases) 
+
+#Tabla
+t3 <- top_stud_tab %>% 
+  gt() %>%
+  cols_label( Brand = "Marcas",
+    Releases = "Lanzamientos") %>%
+ # cols_width(c(Brand, Releases) ~ px(60))  %>%
+  tab_header(title = "Top Marcas", subtitle = "Basado en éxito en taquilla") %>%
+tab_source_note(md("Fuente: datos de [BoxOffice Mojo ](https://www.kaggle.com/datasets/somnath2/box-office)"))%>%
+  tab_footnote(footnote = "*Ingresos Brutos solo de USA y Canada", 
+               placement = "right",
+               location = cells_title("title")) |>
+    tab_options(
+    table.width = pct(80),
+    table.font.size = 35, 
+    container.height = pct(70),
+    heading.padding = pct(0.5),
+    column_labels.padding = pct(0.5),
+    data_row.padding = pct(0.5),
+    footnotes.multiline = FALSE
+  )
+t3
+```
+--- 
+
+```{r}
+#| code-fold: true
+top_brands <- boxoffice_brands %>% slice_max(n = 10, order_by = Total)
+top_brands$Brand <- as.factor(top_brands$Brand) #Brands as factor
+
+#Bubble Plot
+bubble_chart <- ggplot(top_brands, aes(x = Total/ (1000000), 
+                                       y = Brand, size = Releases, 
+                                       color = Brand)) +
+  geom_point(alpha = 0.7) +
+  xlim(c(0,16000)) +
+  scale_size_continuous(range = c(5, 15)) + #Setea el tamaño de los puntos
+  labs(title = "Top 10 Marcas Cinematográficas",
+       subtitle = "De acuerdo a ingresos en taquilla",
+       caption = "*Ingresos Brutos solo de USA y Canada",
+       x = "Ingresos Brutos (en Millones)",
+       y = "Marcas",
+       size = "Releases",
+       color = NULL) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = "Bad Robot") +
+  theme_minimal() + theme(legend.title = element_blank()) + theme(legend.position = "none")
+bubble_chart
+```
+
+# 3. Las mejores de la historia...de acuerdo al público {background-image="./imagenes/my_IA_img8.png" background-size="cover" background-opacity="0.4"}
+
+La segunda métrica que usaremos para medir el éxito de una película son
+las críticas del público. Para ello usaremos la "Internet Movie
+Database". Así que a continuación, presentamos cuáles son las películas
+con mejores ratings del público de la historia.
+
+# {background-image="./imagenes/my_IA_img8.png" background-size="cover" background-opacity="0.4"}
+
+```{r}
+#| code-fold: true
+#Filtramos las 10 mejores películas según las críticas del público
+imbd_top_five <- imbd_allTime %>%
+  select(-X) %>%
+arrange(desc(rating)) %>%
+   distinct(title, .keep_all = TRUE) %>% # Ordenamos de mayor a menor rating
+  slice_head(n = 5)         # Seleccionamos las 5 mejores películas
+#Creamos una tabla con las 5 mejores películas según las críticas del público
+best_rated_table <- imbd_top_five %>%
+  dplyr::mutate(Rank = row_number()) %>%  # Agregamos una columna de rango empezando desde 1
+  gt() %>%
+  cols_move_to_start("Rank") %>%
+  cols_label(
+    title = "Título",
+    rating = "Rating",
+    release_year = "Año",
+    genre = "Género"
+  ) %>%
+  fmt_number(columns = c("rating"), decimals = 1) %>%
+  tab_header(
+    title = "Top 5 Películas Mejor Calificadas por el Público",
+    subtitle = "Basado en las calificaciones de IMDb"
+  ) %>%
+  tab_source_note(
+    md("Fuente: datos de [IMDb](data/IMDB_Top1000_2023.csv)")
+  ) |>
+  tab_options(
+    table.font.size = 30,
+    heading.padding = pct(0.5),
+    column_labels.padding = pct(0.5),
+    data_row.padding = pct(1),
+    data_row.padding.horizontal = pct(0.3),
+    footnotes.multiline = FALSE
+  )
+
+# Imprimir la tabla
+best_rated_table
+```
+
+
+# 4. IMBD Rating y Directores {background-image="./imagenes/my_IA_img10.png" background-size="cover" background-opacity="0.4"}
+
+Datos obtenidos de IMDb *(Internet Movie Database)* &rarr; *"rate":* puntuación de las películas recibida por los usuarios de la página. 
+
+En base a la nota media de las películas dirigidas, hemos designado a los mejores directores de cine.
+
+En la tabla siguiente, se mostrarán los directores mejores calificados por los usuarios de *IMDb* en función a la nota media de las películas que han dirigido.
+
+#
+
+```{r}
+#| code-fold: true
+#- Primero agrruparemos por directores, obtendremos la media de las películas y obtendremos los 5 primeros con mejor rate
+imbd_director <- imbd_allTime %>% 
+  group_by(director) %>% 
+  summarise(Avg_rating = mean(rating, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  slice_max(Avg_rating, n = 10) %>% 
+  head(., n = 10)
+#- A continuación, creamos una tabla con los resultados
+imbd_director %>% 
+  mutate(Rank = row_number(), .before = director) %>% 
+  gt() %>%
+  cols_label(
+    director = "Director",
+    Avg_rating = "Nota Media"
+  ) %>%
+  fmt_number(columns = c("Avg_rating"), decimals = 1) %>%
+  tab_header(
+    title = "Top 10 Directores de Cine",
+    subtitle = "Según valoración de los usuarios de IMDb"
+  ) %>%
+  tab_source_note(
+    md("Fuente: datos de [IMDb](data/IMDB_Top1000_2023.csv)")) |>
+    tab_options(
+    table.width = pct(80),
+    table.font.size = 35, 
+    container.height = pct(70),
+    heading.padding = pct(0.5),
+    column_labels.padding = pct(0.5),
+    data_row.padding = pct(0.5),
+    footnotes.multiline = FALSE)
+```
+--- 
+
+## 4.1 Puntuaciones según MetaScore {background-image="./imagenes/my_IA_img10.png" background-size="cover" background-opacity="0.4"}
+
+**"Metascore":** Puntuación obtenida según la opinión de los críticos de cine &rarr; rango de 0 a 100.
+<br>
+
+```{r}
+#| code-fold: true
+#- Repetiremos el mismo proceso para obtener la segunda tabla
+imbd_metacritic <- imbd_allTime %>% 
+  group_by(director) %>% 
+  summarise(Avg_score = mean(metascore, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  slice_max(Avg_score, n = 10) %>% 
+  head(., 10)
+#- A continuación, creamos la tabla
+imbd_metacritic %>% 
+  mutate(Rank = row_number(), .before = director) %>% 
+  gt() %>%
+  cols_label(
+    director = "Director",
+    Avg_score = "Metascore"
+  ) %>%
+  fmt_number(columns = c("Avg_score"), decimals = 1) %>%
+  tab_header(
+    title = "Top 10 Directores de cine",
+    subtitle = "Según Metascore"
+  ) %>%
+  tab_source_note(
+    md("Fuente: datos de [IMDb](data/IMDB_Top1000_2023.csv)")) |>
+    tab_options(
+    table.width = pct(80),
+    table.font.size = 35, 
+    container.height = pct(65),
+    heading.padding = pct(0.5),
+    column_labels.padding = pct(0.5),
+    data_row.padding = pct(0.5),
+    footnotes.multiline = FALSE)
+```
+
+. . . 
+
+# 5. GOAT Actores {background-image="./imagenes/my_IA_img11.png" background-size="cover" background-opacity="0.4"}
+
+Considerando los *Óscar* como el galardón más prestigioso, mostraremos a los actores que más han obtenido este premio a lo largo de su carrera cinematográfica mediante un gráfico de barras con datos obtenidos de *Kaggle*.
+
+#
+
+```{r}
+#| code-fold: true
+#- Primero organizamos los datos con los 10 actores con más Óscars ganados
+actors_oscar <- actors %>% 
+  select(Name, Oscars) %>% 
+  arrange((desc(Oscars))) %>% 
+  slice_head(., n = 5)
+#- A continuación, realizamos el gráfico de barras
+ggplot(actors_oscar) +
+  geom_bar(aes(x = reorder(Name, -Oscars), y = Oscars, fill = Name), stat = "identity", show.legend = FALSE) +
+  labs(title = "Actores con Mayor Número de Oscars",
+       x = "Nombre Actor",
+       y = "Oscars",
+       caption = "Datos provenientes de Kaggle") +
+  theme_classic()
+```
+
+--- 
+
+Teniendo en cuenta todas las nominaciones a premios &rarr; *Óscar, BAFTA y Globos de Oro*, así como las veces que un actor ha ganado en estas tres categorías:
+
+. . . 
+
+```{r}
+#| code-fold: true
+#- Organizaremos los datos sumando todas las nominaciones y premios para cada actor, pasaremos a formato long y haremos el gráfico de barras
+actors_prizes <- actors %>% 
+  mutate(prizes_total = Oscars + BAFTA + Golden.Globes, nominations_total = Oscar.Nominations + BAFTA.Nominations + Golden.Globe.Nominations) %>% 
+  select(Name, prizes_total, nominations_total) %>% 
+  slice_max(tibble(prizes_total, nominations_total), n = 5) %>% 
+  pivot_longer(cols = 2:3, names_to = "totals", values_to = "values") %>% 
+  ggplot(aes(reorder(Name, -values), values, fill = totals)) +
+    geom_bar(stat="identity", position="dodge") +
+    geom_text(aes(label = values), position = position_dodge(width=0.9), vjust=-0.25) +
+    labs(title = "Actores con más Premios y Nominaciones",
+         subtitle = "Analizando Óscars, BAFTA y Globos de Oro",
+         caption = "Datos provenientes de Kaggle",
+         x = "Nombre Actor",
+         y = "Nominaciones y Premios",
+         fill = NULL,
+         ) +
+  scale_fill_discrete(labels = c("Nominaciones", "Premios")) + theme_classic()
+actors_prizes
+
+```
+
+
+## 6. Análisis Geográfico: Actores
+```{r}
+#| code-fold: true
+#FINAL
+#Ubicación geográfica de los 100 actores ganadores de Oscar
+actors_by_country <- actors %>%
+  group_by(Place.of.Birth, Name) %>%
+  summarise(NumActors = n_distinct(Name),
+    TotalOscars = sum(Oscars, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  filter(TotalOscars > 0) %>%
+  mutate(Country = sub(".*,\\s*(.*)$", "\\1", Place.of.Birth)) #Creamos una nueva columna "Country" para quedarnos sólo con el nombre del país de procedencia de cada actor
+
+# Contamos el número de actores ganadores por país
+actors_by_country_count <- actors_by_country %>%
+  group_by(Country) %>%
+  summarise(NumActors = sum(NumActors))
+
+#-------- Map Plot
+library(tmap) 
+data(World) #- hacemos accesibles 1 df
+world <- World
+world <- World %>%
+  filter(name != "Antarctica") %>%
+  select(name, geometry)
+rm(World)
+
+# Nombre de columnas consistente para el JOIN
+actors_by_country_count <- actors_by_country_count %>% rename(name = Country)
+
+# Join
+actors_map_data <- left_join(world, actors_by_country_count, by = "name")
+
+# Map
+tm_shape(actors_map_data) +
+  tm_borders() +
+  tm_fill(col = "NumActors", style = "jenks", palette = "Blues", title = "Número de Actores") +
+  tm_text("NumActors", size = 0.8, root = 4, col = "black") +
+  tm_layout(
+    legend.format = list(fun = function(x) formatC(x, format = "d"))) #Legenda como Integer
+
+#El stilo jenks es necesario: "jenks": Jenks natural breaks classification, an optimization method that minimizes the variance within each class and maximizes the variance between classes.
+
+```
+
+
+```{r}
+#| code-fold: true
+
+```
+
+## 7. Conclusiones! {background-image="./imagenes/my_IA_img2.png" background-size="cover" background-opacity="0.5"}
+
+**Éxito financiero:**
+"Avatar" y "Avengers: Endgame" lideran taquillas, resaltando la relevancia de acción y superhéroes en los últimos años. Grandes productoras como Marvel Comics respaldan esta tendencia con franquicias icónicas.
+
+**Opiniones divergentes:** Rating y Metascore revelan discrepancias entre público y críticos, el cine es subjetivo.
+
+**Visión integral de la industria:** Existen diferentes maneras de evaluar un *éxito cinematográfico*. El cine es un campo MUY subjetivo.
+
+
+# ¡Gracias por su Atención! {background-image="./imagenes/my_IA_img2.png" background-size="cover" background-opacity="0.5"}
