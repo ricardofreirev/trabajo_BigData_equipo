@@ -102,7 +102,7 @@ taquilla y la opinión del público.
 ## Películas más taquilleras de la historia {background-image="./imagenes/my_IA_img9.png" background-size="cover" background-opacity="0.5"}
 
 De acuerdo a Box Office Mojo, estas son lás 5 películas más éxitosas en
-taquilla:
+taquilla.
 
 ```{r}
 #| echo: false
